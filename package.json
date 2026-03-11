@@ -1,0 +1,21 @@
+{
+  "name": "typora-claude-bridge",
+  "version": "0.1.0",
+  "description": "Claude Code IDE bridge for Typora",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc",
+    "test": "node --test dist/__tests__/server.test.js dist/__tests__/tools.test.js dist/__tests__/lockfile.test.js",
+    "test:integration": "node --test dist/__tests__/integration.test.js"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
