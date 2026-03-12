@@ -52,8 +52,27 @@ async function main() {
   const authToken = crypto.randomUUID();
   const workspaceFolders = await detectWorkspace(workspace);
 
-  const server = await createServer({ authToken, verbose });
-  const { port } = server;
+  const knownWorkspaces = new Set<string>(workspaceFolders);
+  let port = 0;
+
+  const server = await createServer({
+    authToken,
+    verbose,
+    onFrontDocumentChanged: async (filePath) => {
+      if (!filePath) return;
+      const tmp = tmpdir();
+      const normalizedFilePath = filePath.replace(/^\/private/, "");
+      const normalizedTmp = tmp.replace(/^\/private/, "");
+      if (normalizedFilePath.startsWith(normalizedTmp)) return;
+
+      const wsRoot = await findWorkspaceRoot(filePath);
+      if (!knownWorkspaces.has(wsRoot)) {
+        knownWorkspaces.add(wsRoot);
+        await writeLockFile(port, [...knownWorkspaces], authToken);
+      }
+    },
+  });
+  port = server.port;
 
   await writeLockFile(port, workspaceFolders, authToken);
 

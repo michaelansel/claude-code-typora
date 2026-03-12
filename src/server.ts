@@ -7,6 +7,7 @@ export interface ServerOptions {
   authToken: string;
   verbose?: boolean;
   pollIntervalMs?: number;
+  onFrontDocumentChanged?: (filePath: string | null) => void;
 }
 
 interface JsonRpcRequest {
@@ -131,6 +132,7 @@ export function createServer(options: ServerOptions): Promise<BridgeServer> {
           if (clients.size > 0) {
             broadcast(selectionChangedNotification(filePath));
           }
+          options.onFrontDocumentChanged?.(filePath);
         }
       } catch {
         // Ignore poll errors

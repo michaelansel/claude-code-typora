@@ -1,8 +1,9 @@
-import { dirname, basename } from "node:path";
+import { basename } from "node:path";
 import {
   getFrontDocumentPath,
   getDocuments,
   openInTypora,
+  findWorkspaceRoot,
 } from "./typora.js";
 
 export interface ToolDefinition {
@@ -64,9 +65,9 @@ const tools: Array<ToolDefinition & { handler: ToolHandler }> = [
     handler: async () => {
       const filePath = await getFrontDocumentPath();
       if (!filePath) return successResult([]);
-      const parentDir = dirname(filePath);
-      const name = basename(parentDir);
-      return successResult([{ uri: `file://${parentDir}`, name }]);
+      const wsRoot = await findWorkspaceRoot(filePath);
+      const name = basename(wsRoot);
+      return successResult([{ uri: `file://${wsRoot}`, name }]);
     },
   },
   {
