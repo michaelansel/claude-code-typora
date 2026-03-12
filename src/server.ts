@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "node:http";
 import { getToolList, callTool } from "./tools.js";
-import { getFrontDocumentPath, getSelectionText } from "./typora.js";
+import { getFrontDocumentPath, getSelectionText, isTyporaFrontmost } from "./typora.js";
 
 export interface ServerOptions {
   authToken: string;
@@ -134,7 +134,7 @@ export function createServer(options: ServerOptions): Promise<BridgeServer> {
         const filePath = await getFrontDocumentPath();
 
         let selectionText = lastSelectionText;
-        if (pollCount % selectionPollEvery === 0) {
+        if (clients.size > 0 && pollCount % selectionPollEvery === 0 && await isTyporaFrontmost()) {
           selectionText = await getSelectionText();
         }
 

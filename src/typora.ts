@@ -26,6 +26,17 @@ export async function isTyporaRunning(): Promise<boolean> {
   }
 }
 
+export async function isTyporaFrontmost(): Promise<boolean> {
+  try {
+    const result = await runJxa(`
+      Application('System Events').frontmost.frontmostApplication.name() === 'Typora'
+    `);
+    return result === "true";
+  } catch {
+    return false;
+  }
+}
+
 export async function getFrontDocumentPath(): Promise<string | null> {
   try {
     const result = await runJxa(`
