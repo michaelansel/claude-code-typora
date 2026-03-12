@@ -23,14 +23,10 @@ describe("getDiagnostics tool", () => {
 });
 
 describe("getToolList", () => {
-  it("returns the 5 visible tools (getCurrentFile and getCurrentSelection are hidden)", async () => {
+  it("returns the 5 tools", async () => {
     const { getToolList } = await import("../tools.js");
     const tools = getToolList();
     const names = tools.map((t) => t.name);
-    // Hidden tools must not appear
-    assert.ok(!names.includes("getCurrentFile"), "getCurrentFile should be hidden");
-    assert.ok(!names.includes("getCurrentSelection"), "getCurrentSelection should be hidden");
-    // Standard tools must be present
     assert.ok(names.includes("getDiagnostics"));
     assert.ok(names.includes("getOpenEditors"));
     assert.ok(names.includes("getWorkspaceFolders"));

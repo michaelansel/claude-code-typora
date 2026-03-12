@@ -8,12 +8,11 @@
  */
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { writeFile, readFile, rm, mkdtemp, realpath } from "node:fs/promises";
+import { writeFile, rm, mkdtemp, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { WebSocket } from "ws";
 import {
-  isTyporaRunning,
   getFrontDocumentPath,
   getDocuments,
   openInTypora,
@@ -23,6 +22,10 @@ import { writeLockFile, deleteLockFile } from "../lockfile.js";
 
 function skip(reason: string) {
   console.log(`  SKIP: ${reason}`);
+}
+
+async function isTyporaRunning(): Promise<boolean> {
+  return (await getFrontDocumentPath()) !== null || (await getDocuments()).length > 0;
 }
 
 async function wsConnect(port: number, token: string): Promise<WebSocket> {
@@ -77,12 +80,6 @@ describe("integration: Typora running", () => {
     }
   });
 
-  it("isTyporaRunning returns true", async () => {
-    const running = await isTyporaRunning();
-    if (!running) return skip("Typora not running");
-    assert.equal(running, true);
-  });
-
   it("getFrontDocumentPath returns the fixture file path", async () => {
     if (!(await isTyporaRunning())) return skip("Typora not running");
     const filePath = await getFrontDocumentPath();
@@ -104,7 +101,7 @@ describe("integration: Typora running", () => {
     assert.ok(found, `Fixture file should appear in document list`);
   });
 
-  it("full round-trip: bridge → WebSocket → getCurrentFile", async () => {
+  it("full round-trip: bridge → WebSocket → initialize + tools/list", async () => {
     if (!(await isTyporaRunning())) return skip("Typora not running");
 
     const authToken = crypto.randomUUID();
@@ -123,19 +120,16 @@ describe("integration: Typora running", () => {
       }) as Record<string, unknown>;
       assert.equal((initResp["result"] as Record<string, unknown>)["protocolVersion"], "2024-11-05");
 
-      const fileResp = await wsRequest(ws, {
+      const listResp = await wsRequest(ws, {
         jsonrpc: "2.0",
         id: 2,
-        method: "tools/call",
-        params: { name: "getCurrentFile", arguments: {} },
+        method: "tools/list",
+        params: {},
       }) as Record<string, unknown>;
 
-      const result = fileResp["result"] as Record<string, unknown>;
-      assert.ok(!result["isError"], `getCurrentFile returned error: ${JSON.stringify(result)}`);
-      const content = result["content"] as Array<{ type: string; text: string }>;
-      const data = JSON.parse(content[0].text) as { filePath: string; content: string };
-      assert.equal(data.filePath, fixtureFile);
-      assert.equal(data.content, fixtureContent);
+      const result = listResp["result"] as Record<string, unknown>;
+      const tools = result["tools"] as Array<{ name: string }>;
+      assert.ok(Array.isArray(tools) && tools.length === 5);
     } finally {
       ws?.terminate();
       await deleteLockFile(server.port);
@@ -198,8 +192,6 @@ describe("integration: Typora running", () => {
 
       assert.equal(notification["method"], "selection_changed");
       const params = notification["params"] as Record<string, unknown>;
-      // filePath reflects whatever Typora has open at connect time (may have changed
-      // from fixtureFile if a prior test switched documents)
       assert.ok(typeof params["filePath"] === "string", "params.filePath should be a string");
       const fp = params["filePath"] as string;
       assert.ok(fp.length === 0 || fp.startsWith("/"), "filePath should be empty or absolute");

@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "node:http";
 import { getToolList, callTool } from "./tools.js";
-import { getFrontDocumentPath, getSelectionText, isTyporaFrontmost } from "./typora.js";
+import { getFrontDocumentPath } from "./typora.js";
 
 export interface ServerOptions {
   authToken: string;
@@ -35,18 +35,18 @@ function errorResponse(
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
-function selectionChangedNotification(filePath: string | null, text = "") {
+function selectionChangedNotification(filePath: string | null) {
   return {
     jsonrpc: "2.0",
     method: "selection_changed",
     params: {
-      text,
+      text: "",
       filePath: filePath ?? "",
       fileUrl: filePath ? `file://${filePath}` : "",
       selection: {
         start: { line: 0, character: 0 },
         end: { line: 0, character: 0 },
-        isEmpty: text.length === 0,
+        isEmpty: true,
       },
     },
   };
@@ -120,30 +120,16 @@ export function createServer(options: ServerOptions): Promise<BridgeServer> {
       }
     }
 
-    // Poll Typora for active document changes every pollIntervalMs (lightweight, JXA only).
-    // Selection text is fetched separately at a longer interval (10× pollIntervalMs)
-    // to avoid hammering the clipboard with osascript keystrokes.
+    // Poll Typora for active document changes every pollIntervalMs (lightweight JXA only).
     let lastFilePath: string | null | undefined = undefined;
-    let lastSelectionText = "";
-    let pollCount = 0;
-    const selectionPollEvery = 10; // fetch selection every Nth document poll
 
     async function pollTypora() {
       try {
-        pollCount++;
         const filePath = await getFrontDocumentPath();
-
-        let selectionText = lastSelectionText;
-        if (clients.size > 0 && pollCount % selectionPollEvery === 0 && await isTyporaFrontmost()) {
-          selectionText = await getSelectionText();
-        }
-
-        const changed = filePath !== lastFilePath || selectionText !== lastSelectionText;
-        if (changed) {
+        if (filePath !== lastFilePath) {
           lastFilePath = filePath;
-          lastSelectionText = selectionText;
           if (clients.size > 0) {
-            broadcast(selectionChangedNotification(filePath, selectionText));
+            broadcast(selectionChangedNotification(filePath));
           }
         }
       } catch {
@@ -177,11 +163,10 @@ export function createServer(options: ServerOptions): Promise<BridgeServer> {
           console.error("[typora-bridge] Client connected");
         }
 
-        // Push current file path immediately on connect; skip selection (expensive).
-        // The poll loop will fetch selection on its next selection cycle.
+        // Push current file path immediately on connect.
         getFrontDocumentPath().then((filePath) => {
           lastFilePath = filePath;
-          const notification = selectionChangedNotification(filePath, lastSelectionText);
+          const notification = selectionChangedNotification(filePath);
           if (options.verbose) {
             console.error(`[typora-bridge] ⬆ selection_changed(${filePath})`);
           }

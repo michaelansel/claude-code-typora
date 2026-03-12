@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { dirname, basename } from "node:path";
 import {
   getFrontDocumentPath,
@@ -32,31 +31,7 @@ function errorResult(message: string): ToolResult {
   };
 }
 
-// hidden: true tools are kept for callTool routing but not exposed in tools/list.
-// Selection and file content are delivered via selection_changed push notifications.
-const tools: Array<ToolDefinition & { handler: ToolHandler; hidden?: boolean }> = [
-  {
-    name: "getCurrentFile",
-    hidden: true,
-    description: "Get the path and content of the currently active file in Typora",
-    inputSchema: { type: "object", properties: {}, required: [] },
-    handler: async () => {
-      const filePath = await getFrontDocumentPath();
-      if (!filePath) return errorResult("Error: No file is currently open in Typora");
-      const content = await readFile(filePath, "utf-8");
-      return successResult({ filePath, content, languageId: "markdown" });
-    },
-  },
-  {
-    name: "getCurrentSelection",
-    hidden: true,
-    description: "Get the currently selected text in Typora",
-    inputSchema: { type: "object", properties: {}, required: [] },
-    handler: async () => {
-      // Selection is pushed via selection_changed; this pull path is kept as fallback.
-      return errorResult("Use the selection context provided automatically via selection_changed notifications.");
-    },
-  },
+const tools: Array<ToolDefinition & { handler: ToolHandler }> = [
   {
     name: "getDiagnostics",
     description:
@@ -125,9 +100,7 @@ const tools: Array<ToolDefinition & { handler: ToolHandler; hidden?: boolean }> 
 ];
 
 export function getToolList(): ToolDefinition[] {
-  return tools
-    .filter((t) => !t.hidden)
-    .map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+  return tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
 }
 
 export async function callTool(
